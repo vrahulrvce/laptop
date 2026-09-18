@@ -1,0 +1,54 @@
+Machine: DESKTOP-R6MPLC9 | Windows 10
+Board: Gigabyte B560M DS3H V2
+CPU: Intel Core i7-10700 -- 8 cores / 16 threads, up to 2.9GHz base
+RAM: ~16GB
+GPU: NVIDIA GeForce RTX 3060 -- 12.9GB VRAM, CUDA 12.6, compute cap 8.6 (Ampere)
+Torch: 2.14.0+cu126
+
+======================================================================
+Run 2026-09-18 (full run, includes sustained training section)
+======================================================================
+
+--- 1. Raw GPU compute (fp32 matmul, 8192x8192) ---
+fp32: 9.2 TFLOPS  (119.0 ms/iter)
+
+--- 1b. fp16/bf16 matmul (tensor cores) ---
+fp16: 24.9 TFLOPS  (44.1 ms/iter)
+bf16: 25.2 TFLOPS  (43.6 ms/iter)
+
+--- 2. Memory bandwidth ---
+VRAM bandwidth: 224.6 GB/s
+
+--- 3. Training step (6-layer MLP, hidden=2048, batch=32) ---
+39.48 ms/step  (25.3 steps/sec)
+
+--- 4. Real local-LLM inference throughput ---
+Qwen2.5-0.5B-Instruct: 27.9 tokens/sec (3.58s for 100 tokens)
+
+--- 5. Sustained multi-epoch training (thermal-throttling check), 180s budget ---
+224 epochs completed in the time budget.
+first-quarter avg: 26177 samples/sec
+last-quarter avg:  26165 samples/sec
+drift: -0.0%  (stable, no meaningful throttling detected)
+GPU temp: 53C -> 88C (peak)  clock: 1980MHz -> 1822MHz (power-capped, not thermal-throttled)  power: 80W -> ~145W
+
+Verdict: no thermal throttling under sustained load. Throughput stayed completely flat
+(-0.0% drift) across 224 epochs in the 180s window. Clock speed eased down modestly as the
+GPU hit its ~145W power cap, not because of temperature -- peak temp of 88C is within the
+RTX 3060's normal operating range. Burst numbers above are trustworthy as sustained numbers.
+
+======================================================================
+Comparison vs laptop (RTX 4070 Laptop, 8.6GB) -- see results.txt
+======================================================================
+| Benchmark                    | Desktop (RTX 3060, 12GB) | Laptop (RTX 4070 Laptop, 8.6GB) |
+|-------------------------------|---------------------------|-----------------------------------|
+| fp32 matmul                   | 9.2 TFLOPS                | 7.2-7.9 TFLOPS                    |
+| fp16/bf16 matmul              | 24.9 / 25.2 TFLOPS         | 24.4-26.0 / 25.4-27.8 TFLOPS       |
+| VRAM bandwidth                | 224.6 GB/s                 | 121.6-131.0 GB/s                   |
+| LLM inference (Qwen2.5-0.5B)  | 27.9 tok/s                 | 25.1-26.4 tok/s                    |
+| Sustained training throughput | ~26,200 samples/sec, flat  | ~20,100 -> 19,800 samples/sec       |
+| VRAM capacity                 | 12GB                       | 8.6GB                              |
+
+Takeaway: fp16/bf16 TFLOPS are roughly tied. Desktop wins clearly on VRAM bandwidth (~1.7x),
+VRAM capacity (12GB vs 8.6GB), and sustained training throughput (~30% higher). For local-LLM
+inference and continued-pretraining work, the desktop is the better fit, mainly on VRAM headroom.
